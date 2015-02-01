@@ -2,8 +2,8 @@ note
 	description: "Representation of a date at C level"
 	legal: "See notice at end of class."
 	status: "See notice at end of class."
-	date: "$Date$"
-	revision: "$Revision$"
+	date: "$Date: 2009-01-01 04:38:30 -0800 (Thu, 01 Jan 2009) $"
+	revision: "$Revision: 76534 $"
 
 class
 	C_DATE
@@ -46,13 +46,13 @@ feature -- Update
 	update
 			-- Pointer to `struct tm' area.
 		local
-			l_timeb, l_tm, l_time: POINTER
-			l_milli: INTEGER
+			l_timeval, l_tm, l_time: POINTER
+			l_micro: INTEGER
 		do
-			l_timeb := l_timeb.memory_alloc (timeb_structure_size)
+			l_timeval := l_timeval.memory_alloc (timeval_structure_size)
+			gettimeofday (l_timeval, default_pointer)
 			l_time := l_time.memory_alloc (time_t_structure_size)
-			ftime (l_timeb)
-			get_time (l_timeb, l_time)
+			get_time (l_timeval, l_time)
 			if is_utc then
 				l_tm := gmtime (l_time)
 			else
@@ -60,15 +60,15 @@ feature -- Update
 			end
 			create internal_item.make_from_pointer (l_tm, tm_structure_size)
 
-			l_milli := get_millitm (l_timeb)
-			if l_milli < 0 or l_milli > 999 then
-				millisecond_now := 0
+			l_micro := get_micro (l_timeval)
+			if l_micro < 0 or l_micro > 999999 then
+				microseconds_now := 0
 			else
-				millisecond_now := l_milli
+				microseconds_now := l_micro
 			end
 
-			l_timeb.memory_free
 			l_time.memory_free
+			l_timeval.memory_free
 		end
 
 feature -- Status
@@ -127,23 +127,38 @@ feature -- Status
 
 	millisecond_now: INTEGER
 			-- Current millisecond at creation time or after last call to `update'.
+		do
+			Result := microseconds_now // 1000
+		end
+
+	microseconds_now: INTEGER
+			-- Current microseconds (includes milliseconds)
 
 feature {NONE} -- Externals
 
-	ftime (p: POINTER)
-			-- Set current date and time in `p', pointer to a `struct timeb' area.
+	gettimeofday (p, z: POINTER)
+			-- Set current date and time in `p', pointer to a `struct timeb' area, using `z' pointer to `struct timezone'.
+			-- The `z' pointer is depricated and should always be set to NULL.
 		external
-			"C macro signature (struct timeb*) use <sys/timeb.h>"
+			"C macro signature (struct timeval*, struct timezone*) use <sys/time.h>"
 		end
 
-feature {NONE} -- `struct timeb' encapsulation
+feature {NONE} -- `struct timeval' encapsulation
 
-	timeb_structure_size: INTEGER
-			-- Size of `struct timeb'.
+	timezone_structure_size: INTEGER
+			-- Size of `struct timeval'.
 		external
-			"C macro use <sys/timeb.h>"
+			"C macro use <sys/time.h>"
 		alias
-			"sizeof(struct timeb)"
+			"sizeof(struct timezone)"
+		end
+
+	timeval_structure_size: INTEGER
+			-- Size of `struct timeval'.
+		external
+			"C macro use <sys/time.h>"
+		alias
+			"sizeof(struct timeval)"
 		end
 
 	time_t_structure_size: INTEGER
@@ -162,18 +177,26 @@ feature {NONE} -- `struct timeb' encapsulation
 			"sizeof(struct tm)"
 		end
 
-	get_millitm (p: POINTER): INTEGER
-			-- Get `p->millitm'.
+	get_suseconds (p, t: POINTER)
+			-- Get `p->tv_usec'.
 		external
-			"C struct struct timeb access millitm use <sys/timeb.h>"
+			"C inline use <time.h>"
+		alias
+			"*(suseconds_t *) $t = (((struct timeval *)$p)->tv_usec);"
 		end
 
 	get_time (p, t: POINTER)
-			-- Get `p->time'.
+			-- Get `p->tv_sec'.
 		external
-			"C inline use <sys/timeb.h>, <time.h>"
+			"C inline use <time.h>"
 		alias
-			"*(time_t *) $t = (((struct timeb *)$p)->time);"
+			"*(time_t *) $t = (((struct timeval *)$p)->tv_sec);"
+		end
+
+	get_micro (p: POINTER): INTEGER
+			-- get `p->tv_usec' (which has to be an integer type -1 to 1000000 according to POSIX)
+		external
+			"C struct struct timeval access tv_usec use <time.h>"
 		end
 
 feature {NONE} -- `struct tm' encapsulation
