@@ -50,8 +50,8 @@ feature -- Update
 			l_micro: INTEGER
 		do
 			l_timeval := l_timeval.memory_alloc (timeval_structure_size)
-			gettimeofday (l_timeval, default_pointer)
 			l_time := l_time.memory_alloc (time_t_structure_size)
+			gettimeofday (l_timeval, default_pointer)
 			get_time (l_timeval, l_time)
 			if is_utc then
 				l_tm := gmtime (l_time)
@@ -137,21 +137,13 @@ feature -- Status
 feature {NONE} -- Externals
 
 	gettimeofday (p, z: POINTER)
-			-- Set current date and time in `p', pointer to a `struct timeb' area, using `z' pointer to `struct timezone'.
+			-- Set current date and time in `p', pointer to a `struct timeval' area, using `z' pointer to `struct timezone'.
 			-- The `z' pointer is depricated and should always be set to NULL.
 		external
 			"C macro signature (struct timeval*, struct timezone*) use <sys/time.h>"
 		end
 
 feature {NONE} -- `struct timeval' encapsulation
-
-	timezone_structure_size: INTEGER
-			-- Size of `struct timeval'.
-		external
-			"C macro use <sys/time.h>"
-		alias
-			"sizeof(struct timezone)"
-		end
 
 	timeval_structure_size: INTEGER
 			-- Size of `struct timeval'.
@@ -162,7 +154,7 @@ feature {NONE} -- `struct timeval' encapsulation
 		end
 
 	time_t_structure_size: INTEGER
-			-- Size of `struct timeb'.
+			-- Size of `struct time'.
 		external
 			"C macro use <time.h>"
 		alias
@@ -175,14 +167,6 @@ feature {NONE} -- `struct timeval' encapsulation
 			"C macro use <time.h>"
 		alias
 			"sizeof(struct tm)"
-		end
-
-	get_suseconds (p, t: POINTER)
-			-- Get `p->tv_usec'.
-		external
-			"C inline use <time.h>"
-		alias
-			"*(suseconds_t *) $t = (((struct timeval *)$p)->tv_usec);"
 		end
 
 	get_time (p, t: POINTER)
